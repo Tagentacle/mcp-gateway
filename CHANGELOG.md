@@ -18,8 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Duck-types as MCP Server for `StreamableHTTPSessionManager`.
   - Spawns stdio subprocess per HTTP session; bidirectionally relays raw `SessionMessage` objects.
   - Protocol-agnostic — never parses MCP tools/resources/prompts.
-- **MCPServerDescription JSON Schema** (`msg/MCPServerDescription.json`):
-  - Fields: `server_id`, `url`, `transport`, `concurrent_sessions`, `status`, `source`, `tools_summary`, `description`, `publisher_node_id`.
+- **MCPServerDescription** (schema now in separate [`mcp-interfaces`](https://github.com/Tagentacle/mcp-interfaces) package):
   - Published on `/mcp/directory` Topic for unified MCP server discovery.
 - **TOML Configuration**:
   - `[[stdio_servers]]` — declare stdio-based MCP servers with command, args, env, endpoint path.

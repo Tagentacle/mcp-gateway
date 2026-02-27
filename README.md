@@ -67,7 +67,7 @@ python gateway.py /path/to/config.toml
 
 ## /mcp/directory Topic
 
-The Gateway publishes `MCPServerDescription` messages (see `msg/MCPServerDescription.json`) to the `/mcp/directory` Topic. Agent Nodes subscribe to auto-discover available MCP servers.
+The Gateway publishes `MCPServerDescription` messages (schema defined in [`mcp-interfaces`](https://github.com/Tagentacle/mcp-interfaces)) to the `/mcp/directory` Topic. Agent Nodes subscribe to auto-discover available MCP servers.
 
 ## Tagentacle Pkg
 

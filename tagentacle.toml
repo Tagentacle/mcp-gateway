@@ -4,5 +4,8 @@ version = "0.1.0"
 description = "MCP Server Gateway Node — stdio adapter, remote directory, and unified /mcp/directory publisher"
 type = "executable"
 
+[dependencies]
+tagentacle = ["tagentacle_py_core", "mcp_interfaces"]
+
 [entry_points]
 node = "gateway:main"

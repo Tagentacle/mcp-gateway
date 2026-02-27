@@ -67,7 +67,7 @@ python gateway.py /path/to/config.toml
 
 ## /mcp/directory Topic
 
-Gateway 向 `/mcp/directory` Topic 发布 `MCPServerDescription` 消息（参见 `msg/MCPServerDescription.json`）。Agent 节点通过订阅该 Topic 自动发现可用 MCP 服务器。
+Gateway 向 `/mcp/directory` Topic 发布 `MCPServerDescription` 消息（schema 定义在 [`mcp-interfaces`](https://github.com/Tagentacle/mcp-interfaces)）。Agent 节点通过订阅该 Topic 自动发现可用 MCP 服务器。
 
 ## Tagentacle Pkg
 
