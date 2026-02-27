@@ -1,0 +1,8 @@
+[package]
+name = "mcp_gateway"
+version = "0.1.0"
+description = "MCP Server Gateway Node — stdio adapter, remote directory, and unified /mcp/directory publisher"
+type = "executable"
+
+[entry_points]
+node = "gateway:main"

@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tagentacle.dev/schemas/MCPServerDescription.json",
+  "title": "MCPServerDescription",
+  "description": "Describes an MCP Server published to /mcp/directory Topic. Used by Gateway Nodes, MCP Server Nodes, and visualization panels for unified MCP server discovery.",
+  "type": "object",
+  "required": ["server_id", "url", "transport", "status", "source"],
+  "properties": {
+    "server_id": {
+      "type": "string",
+      "description": "Unique identifier for this MCP Server within the workspace (e.g., 'weather_server', 'github_mcp')"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Streamable HTTP endpoint URL (e.g., 'http://localhost:8100/mcp')"
+    },
+    "transport": {
+      "type": "string",
+      "enum": ["streamable-http"],
+      "description": "MCP transport protocol. Currently only 'streamable-http' is supported."
+    },
+    "concurrent_sessions": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this server supports multiple concurrent MCP sessions. stdio-backed servers via Gateway typically do NOT (each session spawns a new subprocess)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["available", "unavailable"],
+      "description": "Current operational status of the MCP Server."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["gateway", "node"],
+      "description": "'gateway' = managed by MCP Gateway Node (stdio adapter or remote directory). 'node' = self-published by an MCP Server Node in the workspace."
+    },
+    "tools_summary": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "List of tool names provided by this MCP Server, for quick preview without establishing a session."
+    },
+    "description": {
+      "type": "string",
+      "default": "",
+      "description": "Human-readable description of this MCP Server."
+    },
+    "publisher_node_id": {
+      "type": "string",
+      "description": "The node_id of the node that published this entry (Gateway Node or MCP Server Node itself)."
+    }
+  },
+  "additionalProperties": false
+}
