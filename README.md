@@ -6,7 +6,7 @@
 
 `mcp-gateway` adapts legacy stdio-only MCP servers to Streamable HTTP and provides unified MCP server discovery via the `/mcp/directory` Topic.
 
-> **⚠️ stdio relay is a legacy compatibility layer.** For new MCP servers, always use Streamable HTTP via `MCPServerNode` — it supports TACL authentication, full MCP protocol features, and standard container networking. See [Tagentacle Best Practices](https://github.com/Tagentacle/tagentacle#-best-practices).
+> **⚠️ stdio relay is a legacy compatibility layer.** For new MCP servers, always use Streamable HTTP via `MCPServerComponent` — it supports TACL authentication, full MCP protocol features, and standard container networking. See [Tagentacle Best Practices](https://github.com/Tagentacle/tagentacle#-best-practices).
 
 ## Architecture
 

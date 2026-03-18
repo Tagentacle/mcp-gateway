@@ -6,7 +6,7 @@
 
 `mcp-gateway` 将仅支持 stdio 的传统 MCP Server 适配为 Streamable HTTP，并通过 `/mcp/directory` Topic 提供统一的 MCP 服务器发现。
 
-> **⚠️ stdio 中继是传统兼容层。** 新建 MCP Server 请始终使用 `MCPServerNode` 的 Streamable HTTP —— 支持 TACL 认证、完整 MCP 协议特性和标准容器网络。参见 [Tagentacle 最佳实践](https://github.com/Tagentacle/tagentacle#-最佳实践)。
+> **⚠️ stdio 中继是传统兼容层。** 新建 MCP Server 请始终使用 `MCPServerComponent` 组合模式 —— 支持 TACL 认证、完整 MCP 协议特性和标准容器网络。参见 [Tagentacle 最佳实践](https://github.com/Tagentacle/tagentacle#-最佳实践)。
 
 ## 架构
 
