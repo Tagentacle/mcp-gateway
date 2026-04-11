@@ -66,9 +66,11 @@ MCP_DIRECTORY_TOPIC = "/mcp/directory"
 # Data classes for configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class StdioServerConfig:
     """Configuration for a stdio MCP server to be relayed."""
+
     name: str
     command: str
     args: list[str] = field(default_factory=list)
@@ -80,6 +82,7 @@ class StdioServerConfig:
 @dataclass
 class RemoteServerConfig:
     """Configuration for a remote MCP server (URL only, no proxy)."""
+
     name: str
     url: str
     description: str = ""
@@ -88,6 +91,7 @@ class RemoteServerConfig:
 # ---------------------------------------------------------------------------
 # StdioRelay — transport-level bridge, duck-types as MCP Server app
 # ---------------------------------------------------------------------------
+
 
 class StdioRelay:
     """Transport-level relay that bridges HTTP ↔ stdio by forwarding
@@ -152,6 +156,7 @@ class StdioRelay:
 # MCPGatewayNode — LifecycleNode that orchestrates relays and directory
 # ---------------------------------------------------------------------------
 
+
 class MCPGatewayNode(LifecycleNode):
     """Gateway Node: stdio→HTTP transport relay + remote server directory.
 
@@ -171,6 +176,7 @@ class MCPGatewayNode(LifecycleNode):
         self._relays: Dict[str, StdioRelay] = {}
         self._session_managers: Dict[str, StreamableHTTPSessionManager] = {}
         self._tools_cache: Dict[str, list[str]] = {}  # for /mcp/directory
+        self._directory_cache: Dict[str, dict] = {}  # server_id -> MCPServerDescription
         self._uvicorn_server: Optional[uvicorn.Server] = None
         self._serve_task: Optional[asyncio.Task] = None
 
@@ -212,6 +218,21 @@ class MCPGatewayNode(LifecycleNode):
 
     async def on_activate(self):
         """Start relays, HTTP server, and publish /mcp/directory."""
+
+        # 0. Subscribe to /mcp/directory to cache external server entries
+        @self.subscribe("/mcp/directory")
+        async def _on_directory(msg):
+            payload = msg.get("payload", {})
+            server_id = payload.get("server_id")
+            publisher = payload.get("publisher_node_id", "")
+            if not server_id or publisher == self.node_id:
+                return  # ignore own publications
+            if payload.get("status") == "available":
+                self._directory_cache[server_id] = payload
+                logger.info("Directory cached: %s at %s", server_id, payload.get("url"))
+            elif payload.get("status") == "unavailable":
+                self._directory_cache.pop(server_id, None)
+
         # 1. Probe each stdio server for tool names (best effort)
         for name, cfg in self._stdio_configs.items():
             self._tools_cache[name] = await self._probe_tools(cfg)
@@ -235,7 +256,10 @@ class MCPGatewayNode(LifecycleNode):
         # 3. Build Starlette app and start uvicorn
         app = self._build_starlette_app()
         uvi_config = uvicorn.Config(
-            app, host=self._host, port=self._port, log_level="info",
+            app,
+            host=self._host,
+            port=self._port,
+            log_level="info",
         )
         self._uvicorn_server = uvicorn.Server(uvi_config)
         self._serve_task = asyncio.create_task(self._uvicorn_server.serve())
@@ -269,7 +293,12 @@ class MCPGatewayNode(LifecycleNode):
         for name in list(self._stdio_configs) + list(self._remote_servers):
             try:
                 await self._publish_directory(
-                    name, "", "gateway", "unavailable", [], "",
+                    name,
+                    "",
+                    "gateway",
+                    "unavailable",
+                    [],
+                    "",
                 )
             except Exception:
                 pass
@@ -306,8 +335,10 @@ class MCPGatewayNode(LifecycleNode):
         """
         try:
             params = StdioServerParameters(
-                command=cfg.command, args=cfg.args,
-                env=cfg.env, cwd=cfg.cwd,
+                command=cfg.command,
+                args=cfg.args,
+                env=cfg.env,
+                cwd=cfg.cwd,
             )
             async with stdio_client(params) as (read, write):
                 async with ClientSession(read, write) as session:
@@ -316,7 +347,9 @@ class MCPGatewayNode(LifecycleNode):
                     names = [t.name for t in result.tools]
                     logger.info(
                         "Probed '%s': %d tools — %s",
-                        cfg.name, len(names), names,
+                        cfg.name,
+                        len(names),
+                        names,
                     )
                     return names
         except Exception as exc:
@@ -346,12 +379,9 @@ class MCPGatewayNode(LifecycleNode):
             info = {
                 "node": self.node_id,
                 "stdio_servers": {
-                    n: self._tools_cache.get(n, [])
-                    for n in self._stdio_configs
+                    n: self._tools_cache.get(n, []) for n in self._stdio_configs
                 },
-                "remote_servers": {
-                    n: c.url for n, c in self._remote_servers.items()
-                },
+                "remote_servers": {n: c.url for n, c in self._remote_servers.items()},
             }
             return Response(
                 content=json.dumps(info, indent=2),
@@ -364,42 +394,72 @@ class MCPGatewayNode(LifecycleNode):
     # ---- /mcp/directory publishing ----
 
     async def _publish_directory(
-        self, server_id, url, source, status, tools_summary, description,
+        self,
+        server_id,
+        url,
+        source,
+        status,
+        tools_summary,
+        description,
     ):
         """Publish an MCPServerDescription to /mcp/directory Topic."""
-        await self.publish(MCP_DIRECTORY_TOPIC, {
-            "server_id": server_id,
-            "url": url,
-            "transport": "streamable-http",
-            "status": status,
-            "source": source,
-            "tools_summary": tools_summary,
-            "description": description,
-            "publisher_node_id": self.node_id,
-        })
+        await self.publish(
+            MCP_DIRECTORY_TOPIC,
+            {
+                "server_id": server_id,
+                "url": url,
+                "transport": "streamable-http",
+                "status": status,
+                "source": source,
+                "tools_summary": tools_summary,
+                "description": description,
+                "publisher_node_id": self.node_id,
+            },
+        )
 
     # ---- bus service handlers ----
 
     async def _svc_list_servers(self, _payload):
-        """Handle /mcp/gateway/list_servers service call."""
+        """Handle /mcp/gateway/list_servers — returns ALL known MCP servers.
+
+        Merges three sources:
+          1. Gateway-proxied stdio servers
+          2. Gateway-proxied remote servers
+          3. Servers discovered via /mcp/directory (cached)
+        """
         base = f"http://{self._host}:{self._port}"
         servers = []
+        seen_ids = set()
         for name, cfg in self._stdio_configs.items():
-            servers.append({
-                "name": name,
-                "type": "stdio",
-                "url": f"{base}/{name}",
-                "tools": self._tools_cache.get(name, []),
-                "description": cfg.description,
-            })
+            seen_ids.add(name)
+            servers.append(
+                {
+                    "server_id": name,
+                    "type": "stdio",
+                    "url": f"{base}/{name}",
+                    "tools_summary": self._tools_cache.get(name, []),
+                    "description": cfg.description,
+                    "source": "gateway",
+                    "status": "available",
+                }
+            )
         for name, cfg in self._remote_servers.items():
-            servers.append({
-                "name": name,
-                "type": "remote",
-                "url": cfg.url,
-                "description": cfg.description,
-            })
-        return json.dumps({"servers": servers})
+            seen_ids.add(name)
+            servers.append(
+                {
+                    "server_id": name,
+                    "type": "remote",
+                    "url": cfg.url,
+                    "description": cfg.description,
+                    "source": "gateway",
+                    "status": "available",
+                }
+            )
+        # Append servers discovered via /mcp/directory not already proxied
+        for sid, entry in self._directory_cache.items():
+            if sid not in seen_ids:
+                servers.append(entry)
+        return {"servers": servers}
 
     async def _svc_server_info(self, payload):
         """Handle /mcp/gateway/server_info service call."""
@@ -409,29 +469,34 @@ class MCPGatewayNode(LifecycleNode):
 
         if name in self._stdio_configs:
             cfg = self._stdio_configs[name]
-            return json.dumps({
-                "name": name,
-                "type": "stdio",
-                "url": f"{base}/{name}",
-                "tools": self._tools_cache.get(name, []),
-                "command": cfg.command,
-                "args": cfg.args,
-                "description": cfg.description,
-            })
+            return json.dumps(
+                {
+                    "name": name,
+                    "type": "stdio",
+                    "url": f"{base}/{name}",
+                    "tools": self._tools_cache.get(name, []),
+                    "command": cfg.command,
+                    "args": cfg.args,
+                    "description": cfg.description,
+                }
+            )
         elif name in self._remote_servers:
             cfg = self._remote_servers[name]
-            return json.dumps({
-                "name": name,
-                "type": "remote",
-                "url": cfg.url,
-                "description": cfg.description,
-            })
+            return json.dumps(
+                {
+                    "name": name,
+                    "type": "remote",
+                    "url": cfg.url,
+                    "description": cfg.description,
+                }
+            )
         return json.dumps({"error": f"Server '{name}' not found"})
 
 
 # ---------------------------------------------------------------------------
 # Configuration loading
 # ---------------------------------------------------------------------------
+
 
 def _load_toml(path: str) -> dict:
     """Load a TOML file into a dict."""
@@ -497,6 +562,7 @@ def load_gateway_config() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 async def main():
     """Entry point for the MCP Gateway Node."""
